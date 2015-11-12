@@ -30,7 +30,7 @@ func NewMemPool(conf *Config) *MemPool {
 func (this *MemPool) run() {
 	for {
 		if this.q.Len() == 0 {
-			this.q.PushFront(make([]byte, 0, this.config.LimitSize))
+			this.q.PushFront(make([]byte, this.config.LimitSize))
 		}
 
 		e := this.q.Front()

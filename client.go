@@ -1,22 +1,30 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"github.com/withliyh/chat/protocol"
 )
 
 func main() {
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1:8989")
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", "192.168.1.200:8989")
 	checkError(err)
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	checkError(err)
 
 	//echoProtocol := &echo.EchoProtocol{}
 
-	packet := chatprotocol.NewChatCommandPacketWithText(0, 1, "hello")
-	conn.Write(packet.Serialize())
+	packets, err := chatprotocol.NewChatCommandPacketWithLargetText(2, 1, "hello")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	for _, packet := range packets {
+		conn.Write(packet.Serialize())
+	}
 	/*
 			// read
 			p, err := echoProtocol.ReadPacket(conn)
@@ -28,6 +36,7 @@ func main() {
 			time.Sleep(2 * time.Second)
 		}
 	*/
+	time.Sleep(5 * time.Second)
 
 	conn.Close()
 }

@@ -19,9 +19,9 @@ func main() {
 
 	// creates a tcp listener
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", ":8989")
-	checkError(err)
+	s_checkError(err)
 	listener, err := net.ListenTCP("tcp", tcpAddr)
-	checkError(err)
+	s_checkError(err)
 
 	// creates a server
 	config := &gotcp.Config{
@@ -31,7 +31,7 @@ func main() {
 	srv := gotcp.NewServer(config, &chatprotocol.ChatCallback{}, &chatprotocol.ChatProtocol{})
 
 	// starts service
-	go srv.Start(listener, time.Second)
+	go srv.Start(listener, 1*time.Second)
 	fmt.Println("listening:", listener.Addr())
 
 	// catchs system signal
@@ -43,7 +43,7 @@ func main() {
 	srv.Stop()
 }
 
-func checkError(err error) {
+func s_checkError(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
