@@ -17,13 +17,23 @@ func main() {
 
 	//echoProtocol := &echo.EchoProtocol{}
 
-	packets, err := chatprotocol.NewChatCommandPacketWithLargetText(2, 1, "hello")
-	if err != nil {
-		fmt.Println(err.Error())
-		return
+	/*
+		packets, err := chatprotocol.NewPacketWithLargetText(2, 1, "hello")
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		for _, packet := range packets {
+			conn.Write(packet.Serialize())
+		}
+	*/
+
+	packets, e := chatprotocol.NewPacketWithFile(2, 1, "./server")
+	if e != nil {
+		fmt.Println(e.Error())
 	}
-	for _, packet := range packets {
-		conn.Write(packet.Serialize())
+	for _, p := range packets {
+		conn.Write(p.Serialize())
 	}
 	/*
 			// read

@@ -3,6 +3,7 @@ package mempool
 import "container/list"
 
 var Pool = NewMemPool(&Config{LimitSize: 4096, LimitCount: 1024})
+var LimitPool = NewMemPool(&Config{LimitSize: 4000, LimitCount: 1024})
 
 type Config struct {
 	LimitSize  uint32

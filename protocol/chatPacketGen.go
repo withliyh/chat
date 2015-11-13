@@ -1,28 +1,12 @@
 package chatprotocol
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/withliyh/chat/mempool"
-)
-
-const (
-	FLAG_PACKET_ONCE = iota
-	FLAG_PACKET_START
-	FLAG_PACKET_END
-)
-const (
-	COMMAND_TYPE_STREAM = iota
-	COMMAND_TYPE_PACKET
-)
-
-const (
-	CONTENT_TYPE_TEXT = iota
-	CONTENT_TYPE_IMAGE
-	CONTENT_TYPE_AUDIO
-	CONTENT_TYPE_VIDEO
-	CONTENT_TYPE_FILE
 )
 
 var (
@@ -34,9 +18,9 @@ func getIdentify() uint32 {
 	return identifythegenerator
 }
 
-func NewChatCommandPacketWithLargetText(from, to uint32, text string) ([]*ChatCommandPacket, error) {
+func NewPacketWithLargetText(from, to uint32, text string) ([]*ChatCommandPacket, error) {
 	reader := strings.NewReader(text)
-	return NewChatCommandPacketWithReader(
+	return NewPacketWithReader(
 		COMMAND_TYPE_STREAM,
 		CONTENT_TYPE_TEXT,
 		from,
@@ -45,53 +29,72 @@ func NewChatCommandPacketWithLargetText(from, to uint32, text string) ([]*ChatCo
 	)
 }
 
-func NewChatCommandPacketWithReader(dtype, ctype, from, to uint32, reader io.Reader) ([]*ChatCommandPacket, error) {
-	identify := getIdentify()
+func NewPacketWithFile(from, to uint32, name string) ([]*ChatCommandPacket, error) {
+	f, err := os.Open(name)
+	defer f.Close()
 
-	buf := mempool.Pool.Get()
-	n, err := io.ReadFull(reader, buf)
-	if err == io.EOF {
-		mempool.Pool.Give(buf)
+	if err != nil {
 		return nil, err
 	}
 
+	return NewPacketWithReader(
+		COMMAND_TYPE_STREAM,
+		CONTENT_TYPE_FILE,
+		from,
+		to,
+		f,
+	)
+}
+
+func NewPacketWithReader(dtype, ctype, from, to uint32, reader io.Reader) ([]*ChatCommandPacket, error) {
+	identify := getIdentify()
+
 	packets := make([]*ChatCommandPacket, 0, 1024)
-
-	packet := &ChatCommandPacket{}
-	packet.ident = identify
-	packet.CommandType = dtype
-	packet.ContentType = ctype
-	packet.From = from
-	packet.To = to
-	packet.Padding = buf[0:n]
-
-	if err == io.ErrUnexpectedEOF {
-		packet.flag = FLAG_PACKET_ONCE
-		packets = append(packets, packet)
-		return packets, nil
-	}
-
 	var seq uint32 = 0
-	packet.flag = FLAG_PACKET_START
 	for {
-		buf := mempool.Pool.Get()
+		buf := mempool.LimitPool.Get()
 		n, err := io.ReadFull(reader, buf)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
 		packet := &ChatCommandPacket{}
 		packet.CommandType = dtype
 		packet.ContentType = ctype
 		packet.From = from
 		packet.To = to
 		packet.Padding = buf[0:n]
-		packet.ident = identify
-		packet.seq = seq
-		seq++
-		if err != nil {
-			packet.flag = FLAG_PACKET_END
+		packet.Ident = identify
+		packet.Seq = seq
+
+		if err == io.EOF {
+			if seq == 0 {
+				mempool.LimitPool.Give(buf)
+				return nil, err
+			} else {
+				packet.Flag = FLAG_PACKET_END
+				packets = append(packets, packet)
+				return packets, nil
+			}
+		}
+
+		if err == io.ErrUnexpectedEOF {
+			if seq == 0 {
+				packet.Flag = FLAG_PACKET_ONCE
+			} else {
+				packet.Flag = FLAG_PACKET_END
+			}
 			packets = append(packets, packet)
 			return packets, nil
 		}
-		packets = append(packets, packet)
-	}
 
-	return packets, nil
+		if seq == 0 {
+			packet.Flag = FLAG_PACKET_START
+		} else {
+			packet.Flag = FLAG_PACKET_STREAMING
+		}
+		packets = append(packets, packet)
+
+		seq++
+	}
 }
